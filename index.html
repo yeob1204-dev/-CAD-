@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>사진 좌표변환기</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- 상단 헤더 -->
+  <header class="app-header">
+    <div class="header-inner">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="8"></circle>
+            <path d="M12 2v4M12 18v4M2 12h4M18 12h4"></path>
+            <circle cx="12" cy="12" r="1.6" fill="currentColor"></circle>
+          </svg>
+        </span>
+        <h1 class="brand-title">사진 좌표변환기</h1>
+      </div>
+      <p class="brand-sub">사진 GPS 좌표 → CAD 좌표 변환</p>
+    </div>
+  </header>
+
+  <main class="app-main">
+
+    <!-- 1. 사진 업로드 -->
+    <section class="card" aria-labelledby="upload-title">
+      <div class="card-head">
+        <span class="step">1</span>
+        <h2 id="upload-title">사진 업로드</h2>
+      </div>
+
+      <label class="dropzone" for="photo-input">
+        <input id="photo-input" class="visually-hidden" type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.jpg,.jpeg,.png,.webp,.heic,.heif" multiple>
+        <svg class="dz-icon" viewBox="0 0 48 48" width="48" height="48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M24 32V10M16 18l8-8 8 8"></path>
+          <path d="M8 30v6a4 4 0 0 0 4 4h24a4 4 0 0 0 4-4v-6"></path>
+        </svg>
+        <p class="dz-main">사진을 이곳에 끌어다 놓거나 클릭하여 선택</p>
+        <p class="dz-sub">여러 장 선택 가능 · JPG, JPEG, HEIC 등 GPS 정보가 포함된 사진</p>
+        <span class="btn btn-outline dz-btn">사진 선택</span>
+      </label>
+
+      <!-- 업로드 결과·오류 안내 (JS에서 표시) -->
+      <div class="upload-message" id="upload-message" role="status" aria-live="polite" hidden></div>
+
+      <div class="file-summary">
+        <span>선택된 사진 <strong id="photo-count">0</strong>장</span>
+        <button type="button" class="btn-link" id="clear-btn" disabled>목록 비우기</button>
+      </div>
+
+      <!-- 선택한 사진 파일명 목록 (JS에서 li 추가) -->
+      <ul class="file-list" id="file-list" aria-label="선택한 사진 목록" hidden></ul>
+    </section>
+
+    <!-- 2. 좌표계 선택 -->
+    <section class="card" aria-labelledby="crs-title">
+      <div class="card-head">
+        <span class="step">2</span>
+        <h2 id="crs-title">좌표계 선택</h2>
+      </div>
+
+      <div class="crs-grid" role="radiogroup" aria-label="좌표계">
+        <label class="crs-option">
+          <input type="radio" name="epsg" value="5179" checked>
+          <span class="crs-box">
+            <span class="crs-code">EPSG:5179</span>
+            <span class="crs-name">통합좌표계(UTM-K)<span class="crs-en">KGD2002 · Unified CS</span></span>
+            <span class="crs-desc">GRS80 · 중앙경선 127.5°E</span>
+          </span>
+        </label>
+        <label class="crs-option">
+          <input type="radio" name="epsg" value="5186">
+          <span class="crs-box">
+            <span class="crs-code">EPSG:5186</span>
+            <span class="crs-name">중부원점(2010)<span class="crs-en">KGD2002 · Central Belt 2010</span></span>
+            <span class="crs-desc">GRS80 · 중앙경선 127°E</span>
+          </span>
+        </label>
+        <label class="crs-option">
+          <input type="radio" name="epsg" value="5181">
+          <span class="crs-box">
+            <span class="crs-code">EPSG:5181</span>
+            <span class="crs-name">중부원점(구 좌표계)<span class="crs-en">KGD2002 · Central Belt</span></span>
+            <span class="crs-desc">GRS80 · 중앙경선 127°E · 폐지됨, EPSG:5186으로 대체</span>
+          </span>
+        </label>
+        <label class="crs-option">
+          <input type="radio" name="epsg" value="5187">
+          <span class="crs-box">
+            <span class="crs-code">EPSG:5187</span>
+            <span class="crs-name">동부원점(2010)<span class="crs-en">KGD2002 · East Belt 2010</span></span>
+            <span class="crs-desc">GRS80 · 중앙경선 129°E</span>
+          </span>
+        </label>
+      </div>
+
+      <div class="actions-row">
+        <button type="button" class="btn btn-primary">좌표 변환 실행</button>
+        <span class="hint">선택한 좌표계로 변환합니다. X = 북쪽(N, Northing), Y = 동쪽(E, Easting)</span>
+      </div>
+    </section>
+
+    <!-- 3. 변환 결과 -->
+    <section class="card card-result" aria-labelledby="result-title">
+      <div class="card-head">
+        <span class="step">3</span>
+        <h2 id="result-title">변환 결과</h2>
+        <span class="count-badge">0건</span>
+      </div>
+
+      <div class="table-wrap">
+        <table class="result-table">
+          <thead>
+            <tr>
+              <th class="col-no">No</th>
+              <th>파일명</th>
+              <th>촬영 일시</th>
+              <th class="num">위도</th>
+              <th class="num">경도</th>
+              <th class="num">X (북쪽 N)</th>
+              <th class="num">Y (동쪽 E)</th>
+              <th>EPSG</th>
+              <th>상태</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="empty-row">
+              <td colspan="9">
+                <div class="empty-state">
+                  <svg viewBox="0 0 48 48" width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="6" y="10" width="36" height="28" rx="3"></rect>
+                    <path d="M6 20h36M18 10v28"></path>
+                  </svg>
+                  <p>변환된 결과가 없습니다.</p>
+                  <p class="empty-sub">사진을 업로드하고 좌표계를 선택한 뒤 변환을 실행하세요.</p>
+                </div>
+              </td>
+            </tr>
+            <!-- 결과 행은 JavaScript에서 이 tbody에 추가 (td마다 data-label 속성 사용, 빈 안내 행은 결과가 생기면 숨김/제거) -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- 4. 하단 저장 영역 -->
+  <footer class="app-footer">
+    <div class="footer-inner">
+      <p class="footer-note">결과를 파일로 저장합니다.</p>
+      <div class="footer-actions">
+        <button type="button" class="btn btn-outline" id="csv-btn">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"></path></svg>
+          CSV 저장
+        </button>
+        <button type="button" class="btn btn-primary" id="dxf-btn">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M4 20h16"></path></svg>
+          DXF 저장
+        </button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- DXF 내보내기 설정 (모달) -->
+  <div class="modal" id="dxf-modal" hidden>
+    <div class="modal-backdrop" data-modal-close></div>
+    <div class="modal-panel" role="dialog" aria-modal="true" aria-labelledby="dxf-modal-title">
+      <div class="modal-head">
+        <h2 id="dxf-modal-title">DXF 내보내기 설정</h2>
+        <button type="button" class="modal-x" data-modal-close aria-label="닫기">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <h3 class="modal-sub">표시 크기 설정 <span class="modal-unit">(단위: m)</span></h3>
+        <div class="size-field" data-key="pointSize" data-min="1" data-max="20" data-default="3">
+          <label class="size-label" for="dxf-pointSize-num">POINT 크기 <span class="size-range">(1~20 m)</span></label>
+          <div class="size-inputs">
+            <input type="range" id="dxf-pointSize-range" class="size-range-input" min="1" max="20" step="0.5" value="3" aria-label="POINT 크기 슬라이더">
+            <span class="num-wrap"><input type="number" id="dxf-pointSize-num" class="size-num" min="1" max="20" step="0.5" value="3" inputmode="decimal"><span class="unit">m</span></span>
+          </div>
+        </div>
+        <div class="size-field" data-key="photoSize" data-min="2" data-max="30" data-default="10">
+          <label class="size-label" for="dxf-photoSize-num">사진 미리보기 크기 <span class="size-range">(2~30 m)</span></label>
+          <div class="size-inputs">
+            <input type="range" id="dxf-photoSize-range" class="size-range-input" min="2" max="30" step="0.5" value="10" aria-label="사진 미리보기 크기 슬라이더">
+            <span class="num-wrap"><input type="number" id="dxf-photoSize-num" class="size-num" min="2" max="30" step="0.5" value="10" inputmode="decimal"><span class="unit">m</span></span>
+          </div>
+        </div>
+         <div class="size-field" data-key="pointGap" data-min="0" data-max="30" data-default="2">
+          <label class="size-label" for="dxf-pointGap-num">점-사진 간격 <span class="size-range">(0~30 m)</span></label>
+          <div class="size-inputs">
+            <input type="range" id="dxf-pointGap-range" class="size-range-input" min="0" max="30" step="0.5" value="2" aria-label="점-사진 간격 슬라이더">
+            <span class="num-wrap"><input type="number" id="dxf-pointGap-num" class="size-num" min="0" max="30" step="0.5" value="2" inputmode="decimal"><span class="unit">m</span></span>
+          </div>
+        </div>
+        <div class="size-field" data-key="textHeight" data-min="1" data-max="20" data-default="5">
+          <label class="size-label" for="dxf-textHeight-num">파일명(TEXT) 글자 높이 <span class="size-range">(1~20 m)</span></label>
+          <div class="size-inputs">
+            <input type="range" id="dxf-textHeight-range" class="size-range-input" min="1" max="20" step="0.5" value="5" aria-label="파일명(TEXT) 글자 높이 슬라이더">
+            <span class="num-wrap"><input type="number" id="dxf-textHeight-num" class="size-num" min="1" max="20" step="0.5" value="5" inputmode="decimal"><span class="unit">m</span></span>
+          </div>
+        </div>
+        <div class="size-field" data-key="textGap" data-min="1" data-max="30" data-default="5">
+          <label class="size-label" for="dxf-textGap-num">사진과 파일명 사이 간격 <span class="size-range">(1~30 m)</span></label>
+          <div class="size-inputs">
+            <input type="range" id="dxf-textGap-range" class="size-range-input" min="1" max="30" step="0.5" value="5" aria-label="사진과 파일명 사이 간격 슬라이더">
+            <span class="num-wrap"><input type="number" id="dxf-textGap-num" class="size-num" min="1" max="30" step="0.5" value="5" inputmode="decimal"><span class="unit">m</span></span>
+          </div>
+        </div>
+
+        <div class="name-box" id="dxf-name-box">
+          <label class="method-option"><input type="checkbox" id="dxf-showName" checked><span>파일명(TEXT) 표시</span></label>
+          <h3 class="modal-sub">사진별 CAD 표시 이름 <span class="modal-unit">(비우면 원본 파일명)</span></h3>
+          <ul class="name-list" id="dxf-name-list" aria-label="사진별 CAD 표시 이름"></ul>
+        </div>
+        
+        <fieldset class="method-group">
+          <legend class="modal-sub">내보내기 방식</legend>
+          <label class="method-option"><input type="radio" name="dxf-method" value="external" checked><span>외부 사진 연결 방식 (ZIP 저장)</span></label>
+          <label class="method-option" style="opacity:.55;cursor:not-allowed"><input type="radio" name="dxf-method" value="embedded" disabled><span>단일 파일 방식 (준비 중 · 선택 불가)</span></label>
+          <label class="method-option" style="opacity:.55;cursor:not-allowed"><input type="radio" name="dxf-method" value="both" disabled><span>두 방식 모두 내보내기 (준비 중 · 선택 불가)</span></label>
+        </fieldset>
+
+        <p class="modal-note">외부 사진 연결 방식은 DXF, 썸네일, 원본 사진, 사진 목록을 ZIP 하나로 저장합니다. 반드시 압축을 푼 폴더에서 DXF를 여세요. 사진 크기는 긴 변 기준이며, 사진은 촬영 좌표(POINT)의 오른쪽(동쪽)에 점-사진 간격만큼 떨어져 세로 중앙에 맞춰 표시됩니다.</p>
+      </div>
+
+      <div class="modal-foot">
+        <button type="button" class="btn btn-outline" id="dxf-reset">기본값으로 초기화</button>
+        <span class="modal-spacer"></span>
+        <button type="button" class="btn btn-outline" data-modal-close>취소</button>
+        <button type="button" class="btn btn-primary" id="dxf-export">DXF 내보내기</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="js/upload.js"></script>
+  <script src="js/exif.js"></script>
+  <!-- Proj4js 2.9.2 (CDN, 버전 고정): 인터넷 연결 필요. 불러오지 못하면 내장 엔진으로 자동 대체 -->
+  <script src="https://cdn.jsdelivr.net/npm/proj4@2.9.2/dist/proj4.js"></script>
+  <script src="js/projection.js"></script>
+  <script src="js/results.js"></script>
+  <script src="js/thumbnails.js"></script>
+  <script src="js/csv.js"></script>
+  <script src="js/zip.js"></script>
+  <script src="js/dxf.js"></script>
+</body>
+</html>
