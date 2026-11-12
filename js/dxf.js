@@ -72,12 +72,14 @@
     const legacyOff = Math.max(LABEL_OFFSET, pointSize / 2);
     const pointGap = hasOpt && typeof options.pointGap === 'number' && isFinite(options.pointGap) && options.pointGap >= 0 ? options.pointGap : 2; // 점-사진 간격 (0 허용)
     const showName = !(hasOpt && options.showName === false); // 파일명 표시 OFF이면 TEXT를 만들지 않음
+    const showLink = !!(hasOpt && options.showLink === true); // 연결선 표시 ON일 때만 LINE 및 PHOTO_LINK 레이어 생성
+    const photoDir = hasOpt && (options.photoDir === 'left' || options.photoDir === 'up' || options.photoDir === 'down') ? options.photoDir : 'right';
     const hasImages = hasOpt && items.some(function (it) { return !!it.image; });
 
     // ----- 핸들 미리 배정 -----
     const h = {
       ltypeTable: w.next(), ltByBlock: w.next(), ltByLayer: w.next(), ltCont: w.next(),
-      layerTable: w.next(), layer0: w.next(), layerPoint: w.next(), layerLabel: w.next(), layerImage: w.next(),
+      layerTable: w.next(), layer0: w.next(), layerPoint: w.next(), layerLabel: w.next(), layerImage: w.next(), layerLink: w.next(),
       styleTable: w.next(), styleStd: w.next(),
       appidTable: w.next(), appidAcad: w.next(),
       brTable: w.next(), brModel: w.next(), brPaper: w.next(),
@@ -88,7 +90,7 @@
     // ----- ENTITIES (핸들 소비) -----
     const ent = new Writer();
     ent.handle = w.handle;
-    let pointCount = 0, textCount = 0;
+    let pointCount = 0, textCount = 0, linkCount = 0;
     const images = [];
     items.forEach(function (item) {
       const x = item.dxf.x, y = item.dxf.y; // X = Easting, Y = Northing
@@ -97,6 +99,7 @@
       if (hasImages && item.image) {
         const pw = item.image.width, ph = item.image.height;
         const scale = photoSize / Math.max(pw, ph);      // 긴 변 = 설정값, 픽셀은 정사각형 → 비율 유지
+        const imgW = pw * scale;
         const imgH = ph * scale;
         const img = { path: item.image.path, pw: pw, ph: ph, h: ent.next(), def: ent.next(), reactor: ent.next() };
         img.name = img.path.replace(/^.*\//, '').replace(/\.[^.]*$/, '');
@@ -104,8 +107,31 @@
         ent.add(0, 'IMAGE'); ent.add(5, img.h); ent.add(330, h.brModel);
         ent.add(100, 'AcDbEntity'); ent.add(8, 'PHOTO_IMAGE');
         ent.add(100, 'AcDbRasterImage'); ent.add(90, 0);
-        const ix = x + pointGap;                                  // 사진 왼쪽 가장자리: POINT에서 오른쪽(+X, 동쪽)으로 간격만큼
-        const iy = y - imgH / 2;                                  // 사진 세로 중앙이 POINT의 Y(북쪽)와 같도록
+
+        // 방향별 이미지 삽입점(ix, iy) 및 연결선 끝점(linkEndX, linkEndY) 계산
+        let ix, iy, linkEndX, linkEndY;
+        if (photoDir === 'left') {
+          ix = x - pointGap - imgW;
+          iy = y - imgH / 2;
+          linkEndX = ix + imgW;
+          linkEndY = iy + imgH / 2;
+        } else if (photoDir === 'up') {
+          ix = x - imgW / 2;
+          iy = y + pointGap;
+          linkEndX = ix + imgW / 2;
+          linkEndY = iy;
+        } else if (photoDir === 'down') {
+          ix = x - imgW / 2;
+          iy = y - pointGap - imgH;
+          linkEndX = ix + imgW / 2;
+          linkEndY = iy + imgH;
+        } else {
+          ix = x + pointGap;
+          iy = y - imgH / 2;
+          linkEndX = ix;
+          linkEndY = iy + imgH / 2;
+        }
+
         ent.num(10, ix); ent.num(20, iy); ent.num(30, 0);        // 삽입점 = 이미지 왼쪽 아래 모서리 (POINT 자체는 이동하지 않음)
         ent.add(11, scale.toFixed(10)); ent.add(21, '0.0000000000'); ent.add(31, '0.0000000000'); // U: 픽셀 한 칸의 가로 방향(m)
         ent.add(12, '0.0000000000'); ent.add(22, scale.toFixed(10)); ent.add(32, '0.0000000000'); // V: 픽셀 한 칸의 세로 방향(m)
@@ -116,7 +142,19 @@
         ent.add(71, 1); ent.add(91, 2);                           // 사각형 클립 경계(전체)
         ent.add(14, '-0.5'); ent.add(24, '-0.5');
         ent.add(14, (pw - 0.5).toFixed(1)); ent.add(24, (ph - 0.5).toFixed(1));
-        textX = ix; textY = iy + imgH + textGap;                  // 사진 윗변 위에 글자 (사진 왼쪽 가장자리에 맞춤)
+        
+        // 파일명(TEXT) 위치: 아래쪽 배치인 경우 사진 아래쪽에 표시, 그 외는 사진 위쪽에 표시
+        textX = ix;
+        textY = (photoDir === 'down') ? (iy - textH - textGap) : (iy + imgH + textGap);
+
+        if (showLink) {
+          ent.add(0, 'LINE'); ent.add(5, ent.next()); ent.add(330, h.brModel);
+          ent.add(100, 'AcDbEntity'); ent.add(8, 'PHOTO_LINK');
+          ent.add(100, 'AcDbLine');
+          ent.num(10, x); ent.num(20, y); ent.num(30, 0);
+          ent.num(11, linkEndX); ent.num(21, linkEndY); ent.num(31, 0);
+          linkCount += 1;
+        }
       }
 
       ent.add(0, 'POINT'); ent.add(5, ent.next()); ent.add(330, h.brModel);
@@ -180,6 +218,7 @@
 
     const layers = [['0', h.layer0], ['PHOTO_POINT', h.layerPoint], ['PHOTO_LABEL', h.layerLabel]];
     if (images.length) layers.push(['PHOTO_IMAGE', h.layerImage]);
+    if (showLink && linkCount > 0) layers.push(['PHOTO_LINK', h.layerLink]);
     tableStart('LAYER', h.layerTable, layers.length);
     layers.forEach(function (l) {
       recordStart('LAYER', l[1], h.layerTable, 'AcDbLayerTableRecord');
@@ -248,7 +287,7 @@
     w.add(0, 'ENDSEC');
 
     w.add(0, 'EOF');
-    return { text: w.lines.join('\r\n') + '\r\n', points: pointCount, texts: textCount, images: images.length };
+    return { text: w.lines.join('\r\n') + '\r\n', points: pointCount, texts: textCount, images: images.length, links: linkCount };
   }
 
   function pad(n) { return (n < 10 ? '0' : '') + n; }
@@ -267,12 +306,11 @@
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    setTimeout(function () { URL.revokeObjectURL(url); }, 60000); // 큰 ZIP 다운로드가 끝나기 전에 해제되지 않도록 넉넉히
+    setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
   }
 
   function pad3(n) { return String(n).padStart(3, '0'); }
 
-  // ZIP 안에 쓸 수 있는 파일 이름으로 정리 (경로 구분자·금지 문자 제거, 한글은 유지)
   function safeFileName(name) {
     let t = String(name || 'photo').replace(/[\u0000-\u001F\u007F\\/:*?"<>|]+/g, '_').replace(/^\.+/, '_').trim();
     if (!t) t = 'photo';
@@ -290,7 +328,6 @@
 
   function hrefOf(path) { return path.split('/').map(encodeURIComponent).join('/'); }
 
-  // photo-index.html: 스크립트 없는 정적 목록. 썸네일과 원본 사진을 ZIP 안의 상대 경로로 연결
   function buildIndexHtml(rows, epsgText) {
     const body = rows.map(function (r) {
       const img = r.thumb ? '<img src="' + hrefOf(r.thumb) + '" alt="' + esc(r.name) + '">' : '';
@@ -316,13 +353,13 @@
     if (waiting.length === 0) return;
     showNote('썸네일 준비를 기다리는 중입니다...');
     await Promise.race([
-      Promise.all(waiting.map(function (i) { return T.generate(files[i]); })), // 이미 대기 중인 생성이 끝나기를 기다릴 뿐, 새로 만들지 않음
+      Promise.all(waiting.map(function (i) { return T.generate(files[i]); })),
       new Promise(function (resolve) { setTimeout(resolve, 30000); })
     ]);
   }
 
   let busy = false;
-  const customNames = new WeakMap(); // File 객체 → 사용자 지정 CAD 표시 이름 (같은 이름의 사진도 File이 달라 따로 관리됨)
+  const customNames = new WeakMap();
 
   async function exportDxf(settings) {
     if (busy) return;
@@ -349,7 +386,7 @@
 
     busy = true;
     try {
-      if (!settings) { // 설정 화면이 없는 경우: 기존 방식(DXF 한 파일)
+      if (!settings) {
         const dxf = buildDxf(validIdx.map(function (i) { return results[i]; }), null);
         download(new Blob([dxf.text], { type: 'application/dxf;charset=utf-8' }), fileName());
         showNote('DXF 저장: POINT ' + dxf.points + '개, TEXT ' + dxf.texts + '개를 만들었습니다.');
@@ -357,7 +394,6 @@
       }
       if (!window.ZipWriter) { showNote('ZIP 모듈(zip.js)을 불러오지 못했습니다.'); return; }
 
-      // 사진 목록 순서와 결과 순서가 같은지 확인 (같지 않으면 이미지 연결을 하지 않음)
       const files = window.photoList ? window.photoList.getFiles() : [];
       const aligned = files.length === results.length && results.every(function (r, i) { return r.fileName === files[i].name; });
       if (aligned) await waitForThumbnails(files, validIdx);
@@ -371,19 +407,17 @@
       for (const i of validIdx) {
         const r = results[i];
         const item = Object.assign({}, r);
-        if (aligned) { const custom = customNames.get(files[i]); if (custom) item.label = custom; } // CAD TEXT에만 적용
+        if (aligned) { const custom = customNames.get(files[i]); if (custom) item.label = custom; }
         const no = pad3(i + 1);
         const row = { no: i + 1, name: r.fileName, dateTime: r.dateTime, lat: r.latitude.toFixed(6), lon: r.longitude.toFixed(6),
           easting: r.easting.toFixed(3), northing: r.northing.toFixed(3), thumb: null, original: null };
         if (aligned) {
-          // 읽을 수 없는 원본(삭제·이동·클라우드 미동기화 등) 한 장 때문에 전체 저장이 실패하지 않도록 미리 읽기 확인
           let readable = true;
           try { await files[i].slice(0, 1).arrayBuffer(); } catch (error) { readable = false; originalFail += 1; }
           if (readable) {
             row.original = 'originals/photo_' + no + '_' + safeFileName(r.fileName);
-            zipEntries.push({ name: row.original, data: files[i] }); // 원본 그대로 (변환 없음)
+            zipEntries.push({ name: row.original, data: files[i] });
           }
-          // 목록 번호가 아니라 File 객체로 찾아, 내보내는 중 목록이 바뀌어도 다른 사진의 썸네일이 섞이지 않게 함
           const t = T ? T.get(files[i]) : null;
           if (t && t.status === 'OK' && t.blob && t.width > 0 && t.height > 0) {
             row.thumb = 'thumbnails/photo_' + no + '.jpg';
@@ -398,13 +432,13 @@
       }
 
       const dxf = buildDxf(items, settings);
-      zipEntries.unshift({ name: 'photo-coordinates.dxf', data: new Blob([dxf.text], { type: 'application/dxf;charset=utf-8' }) }); // UTF-8, BOM 없음
+      zipEntries.unshift({ name: 'photo-coordinates.dxf', data: new Blob([dxf.text], { type: 'application/dxf;charset=utf-8' }) });
       zipEntries.push({ name: 'photo-index.html', data: new Blob([buildIndexHtml(rows, results[validIdx[0]].epsg)], { type: 'text/html;charset=utf-8' }) });
 
       showNote('ZIP 파일을 만드는 중입니다...');
       const zip = await window.ZipWriter.create(zipEntries);
       download(zip, fileName().replace(/\.dxf$/, '.zip'));
-      let msg = 'ZIP 저장: POINT ' + dxf.points + '개, TEXT ' + dxf.texts + '개' + (settings.showName === false ? '(파일명 표시 끔)' : '') + ', 사진 이미지 ' + dxf.images + '개. 압축을 먼저 풀고 DXF를 여세요.';
+      let msg = 'ZIP 저장: POINT ' + dxf.points + '개, TEXT ' + dxf.texts + '개' + (settings.showName === false ? '(파일명 표시 끔)' : '') + ', 사진 이미지 ' + dxf.images + '개' + (dxf.links > 0 ? ', 연결선 ' + dxf.links + '개' : '') + '. 압축을 먼저 풀고 DXF를 여세요.';
       if (!aligned) msg += ' (사진 목록과 결과 순서가 달라 이미지 연결을 하지 않았습니다)';
       if (originalFail > 0) msg += ' 원본을 읽을 수 없어 ZIP에서 제외 ' + originalFail + '장.';
       if (thumbFail > 0) msg += ' 썸네일이 없어 이미지 제외 ' + thumbFail + '장.';
@@ -440,13 +474,13 @@
     const num = field.querySelector('.size-num');
     const range = field.querySelector('.size-range-input');
     range.addEventListener('input', function () { setField(field, range.value); });
-    num.addEventListener('input', function () { // 입력 중에는 범위 안의 값만 슬라이더에 반영
+    num.addEventListener('input', function () {
       const v = clampValue(field, num.value);
       const inRange = v !== null && String(v) === String(parseFloat(num.value));
       num.classList.toggle('is-invalid', !inRange);
       if (v !== null) range.value = String(v);
     });
-    num.addEventListener('change', function () { // 입력이 끝나면 범위로 보정, 비었거나 숫자가 아니면 슬라이더 값 유지
+    num.addEventListener('change', function () {
       const v = clampValue(field, num.value);
       setField(field, v === null ? range.value : v);
     });
@@ -456,7 +490,6 @@
     fields.forEach(function (f) { setField(f, f.dataset.default); });
   }
 
-  // 현재 화면의 설정값 → 전달용 객체 (단위 m)
   function readSettings() {
     const s = {};
     fields.forEach(function (f) {
@@ -464,13 +497,16 @@
       s[f.dataset.key] = v === null ? parseFloat(f.dataset.default) : v;
     });
     const checked = modal.querySelector('input[name="dxf-method"]:checked');
+    const dirChecked = modal.querySelector('input[name="dxf-photoDir"]:checked');
     const sn = document.getElementById('dxf-showName');
+    const sl = document.getElementById('dxf-showLink');
     s.showName = sn ? sn.checked : true;
-    s.method = checked ? checked.value : 'external'; // 현재 구현된 방식은 'external'(외부 사진 연결)뿐
+    s.showLink = sl ? sl.checked : false;
+    s.photoDir = dirChecked ? dirChecked.value : 'right';
+    s.method = checked ? checked.value : 'external';
     return s;
   }
 
-  // 사진별 CAD 표시 이름 입력 목록 (내보낼 수 있는 사진만, 입력값은 File 객체에 연결해 저장)
   function renderNameList() {
     const list = document.getElementById('dxf-name-list');
     if (!list) return;
@@ -541,7 +577,6 @@
   }
 
   function onSaveClick() {
-    // 내보낼 사진이 아예 없으면 설정 화면을 열지 않고 기존 안내를 표시
     if (!window.photoResults || window.photoResults.getResults().length === 0) {
       showNote('내보낼 사진이 없습니다. 사진을 먼저 업로드하세요.');
       return;
@@ -557,21 +592,25 @@
 
   btn.disabled = false;
   if (!modal) {
-    btn.addEventListener('click', function () { exportDxf(null); }); // 설정 화면이 없으면 기존 방식으로 동작
+    btn.addEventListener('click', function () { exportDxf(null); });
   } else {
     fields.forEach(bindField);
     const showNameBox = document.getElementById('dxf-showName');
+    const showLinkBox = document.getElementById('dxf-showLink');
     if (showNameBox) showNameBox.addEventListener('change', syncNameState);
     btn.addEventListener('click', onSaveClick);
     document.getElementById('dxf-export').addEventListener('click', onExportClick);
     document.getElementById('dxf-reset').addEventListener('click', function () {
-      resetSizes(); // 네 가지 크기와 파일명 표시(ON)를 기본값으로 (내보내기 방식·사진별 이름은 유지)
+      resetSizes();
       if (showNameBox) { showNameBox.checked = true; syncNameState(); }
+      if (showLinkBox) { showLinkBox.checked = false; }
+      const defaultDir = modal.querySelector('input[name="dxf-photoDir"][value="right"]');
+      if (defaultDir) { defaultDir.checked = true; }
     });
     modal.querySelectorAll('[data-modal-close]').forEach(function (el) { el.addEventListener('click', closeModal); });
     modal.addEventListener('keydown', function (event) {
       if (event.key === 'Escape') { event.preventDefault(); closeModal(); return; }
-      if (event.key !== 'Tab') return; // 모달 안에서만 Tab 이동
+      if (event.key !== 'Tab') return;
       const focusable = Array.prototype.slice.call(modal.querySelectorAll('button, input')).filter(function (el) { return !el.disabled && el.offsetParent !== null; });
       if (focusable.length === 0) return;
       const first = focusable[0], last = focusable[focusable.length - 1];
@@ -580,9 +619,8 @@
     });
   }
 
-  // 마지막으로 전달된 설정을 읽을 수 있도록 제공
   window.DxfExport = {
     getLastSettings: function () { return lastSettings ? Object.assign({}, lastSettings) : null; },
-    _buildDxf: buildDxf // 점검용
+    _buildDxf: buildDxf
   };
 })();

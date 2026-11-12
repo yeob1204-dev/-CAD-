@@ -74,6 +74,14 @@
           </span>
         </label>
         <label class="crs-option">
+          <input type="radio" name="epsg" value="5185">
+          <span class="crs-box">
+            <span class="crs-code">EPSG:5185</span>
+            <span class="crs-name">서부원점(2010)<span class="crs-en">KGD2002 · West Belt 2010</span></span>
+            <span class="crs-desc">GRS80 · 중앙경선 125°E</span>
+          </span>
+        </label>
+        <label class="crs-option">
           <input type="radio" name="epsg" value="5186">
           <span class="crs-box">
             <span class="crs-code">EPSG:5186</span>
@@ -82,19 +90,19 @@
           </span>
         </label>
         <label class="crs-option">
-          <input type="radio" name="epsg" value="5181">
-          <span class="crs-box">
-            <span class="crs-code">EPSG:5181</span>
-            <span class="crs-name">중부원점(구 좌표계)<span class="crs-en">KGD2002 · Central Belt</span></span>
-            <span class="crs-desc">GRS80 · 중앙경선 127°E · 폐지됨, EPSG:5186으로 대체</span>
-          </span>
-        </label>
-        <label class="crs-option">
           <input type="radio" name="epsg" value="5187">
           <span class="crs-box">
             <span class="crs-code">EPSG:5187</span>
             <span class="crs-name">동부원점(2010)<span class="crs-en">KGD2002 · East Belt 2010</span></span>
             <span class="crs-desc">GRS80 · 중앙경선 129°E</span>
+          </span>
+        </label>
+        <label class="crs-option">
+          <input type="radio" name="epsg" value="5188">
+          <span class="crs-box">
+            <span class="crs-code">EPSG:5188</span>
+            <span class="crs-name">동해(울릉)원점(2010)<span class="crs-en">KGD2002 · East Sea Belt 2010</span></span>
+            <span class="crs-desc">GRS80 · 중앙경선 131°E</span>
           </span>
         </label>
       </div>
@@ -141,7 +149,6 @@
                 </div>
               </td>
             </tr>
-            <!-- 결과 행은 JavaScript에서 이 tbody에 추가 (td마다 data-label 속성 사용, 빈 안내 행은 결과가 생기면 숨김/제거) -->
           </tbody>
         </table>
       </div>
@@ -198,6 +205,15 @@
             <span class="num-wrap"><input type="number" id="dxf-pointGap-num" class="size-num" min="0" max="30" step="0.5" value="2" inputmode="decimal"><span class="unit">m</span></span>
           </div>
         </div>
+
+        <fieldset class="method-group">
+          <legend class="modal-sub">사진 배치 방향</legend>
+          <label class="method-option"><input type="radio" name="dxf-photoDir" value="right" checked><span>오른쪽</span></label>
+          <label class="method-option"><input type="radio" name="dxf-photoDir" value="left"><span>왼쪽</span></label>
+          <label class="method-option"><input type="radio" name="dxf-photoDir" value="up"><span>위쪽</span></label>
+          <label class="method-option"><input type="radio" name="dxf-photoDir" value="down"><span>아래쪽</span></label>
+        </fieldset>
+
         <div class="size-field" data-key="textHeight" data-min="1" data-max="20" data-default="5">
           <label class="size-label" for="dxf-textHeight-num">파일명(TEXT) 글자 높이 <span class="size-range">(1~20 m)</span></label>
           <div class="size-inputs">
@@ -213,6 +229,10 @@
           </div>
         </div>
 
+        <div class="name-box">
+          <label class="method-option"><input type="checkbox" id="dxf-showLink"><span>사진-POINT 연결선 표시</span></label>
+        </div>
+
         <div class="name-box" id="dxf-name-box">
           <label class="method-option"><input type="checkbox" id="dxf-showName" checked><span>파일명(TEXT) 표시</span></label>
           <h3 class="modal-sub">사진별 CAD 표시 이름 <span class="modal-unit">(비우면 원본 파일명)</span></h3>
@@ -226,7 +246,7 @@
           <label class="method-option" style="opacity:.55;cursor:not-allowed"><input type="radio" name="dxf-method" value="both" disabled><span>두 방식 모두 내보내기 (준비 중 · 선택 불가)</span></label>
         </fieldset>
 
-        <p class="modal-note">외부 사진 연결 방식은 DXF, 썸네일, 원본 사진, 사진 목록을 ZIP 하나로 저장합니다. 반드시 압축을 푼 폴더에서 DXF를 여세요. 사진 크기는 긴 변 기준이며, 사진은 촬영 좌표(POINT)의 오른쪽(동쪽)에 점-사진 간격만큼 떨어져 세로 중앙에 맞춰 표시됩니다.</p>
+        <p class="modal-note">외부 사진 연결 방식은 DXF, 썸네일, 원본 사진, 사진 목록을 ZIP 하나로 저장합니다. 반드시 압축을 푼 폴더에서 DXF를 여세요. 사진 크기는 긴 변 기준이며, 사진은 촬영 좌표(POINT)에서 선택한 방향으로 점-사진 간격만큼 떨어져 중앙에 맞춰 표시됩니다.</p>
       </div>
 
       <div class="modal-foot">
